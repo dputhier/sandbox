@@ -99,9 +99,27 @@ class SandboxGame:
     # Setup helpers
 
     def _spawn_initial_enemies(self) -> None:
-        self.game_state.spawn_enemy(EnemyType.BRUTE, Vector3(-4.0, 0.5, 6.0))
-        self.game_state.spawn_enemy(EnemyType.SPRINTER, Vector3(4.0, 0.5, 6.0))
-        self.game_state.spawn_enemy(EnemyType.LURKER, Vector3(0.0, 3.5, 8.0))
+        layout = self.game_state.layout
+
+        perimeter_ratio_ground = 0.85
+        perimeter_ratio_upper = 0.9
+
+        ground_y = 0.5
+        upper_y = layout.floor_height + 0.5
+
+        brute_position = layout.constrain(
+            Vector3(-layout.bounds_x * perimeter_ratio_ground, ground_y, layout.bounds_z * perimeter_ratio_ground)
+        )
+        sprinter_position = layout.constrain(
+            Vector3(layout.bounds_x * perimeter_ratio_ground, ground_y, layout.bounds_z * perimeter_ratio_ground)
+        )
+        lurker_position = layout.constrain(
+            Vector3(0.0, upper_y, layout.bounds_z * perimeter_ratio_upper)
+        )
+
+        self.game_state.spawn_enemy(EnemyType.BRUTE, brute_position)
+        self.game_state.spawn_enemy(EnemyType.SPRINTER, sprinter_position)
+        self.game_state.spawn_enemy(EnemyType.LURKER, lurker_position)
 
     def initialize(self) -> None:
         if self.headless:
