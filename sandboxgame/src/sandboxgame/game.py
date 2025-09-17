@@ -9,6 +9,7 @@ from typing import Optional
 
 from .core import EnemyType, GameState, Vector3
 from .utils.io import InputManager
+from .utils.messages import print_message
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,10 @@ class SandboxGame:
     def initialize(self) -> None:
         if self.headless:
             logger.info("Sandbox game initialized in headless mode; rendering disabled.")
+            print_message(
+                "Headless mode active - skipping window/context initialization.",
+                level=1,
+            )
             return
         if not HAVE_GLFW or glfw is None:
             raise RuntimeError("GLFW is not available; cannot create window.")
@@ -138,9 +143,12 @@ class SandboxGame:
     # Main loop
 
     def run(self) -> None:
+        print_message("Initializing sandbox game...", level=1)
         self.initialize()
         self._running = True
         self._last_time = time.perf_counter()
+
+        print_message("Starting main loop.", level=1)
 
         while self._running:
             if not self.headless:
@@ -157,6 +165,7 @@ class SandboxGame:
             if self.headless:
                 # In headless mode ``run`` performs a single simulation tick.
                 self._running = False
+                print_message("Headless tick complete.", level=2)
                 continue
 
             self._render_scene()
@@ -164,6 +173,7 @@ class SandboxGame:
 
         if not self.headless and glfw is not None:
             glfw.terminate()
+        print_message("Sandbox game loop terminated.", level=1)
 
     def _tick(self, dt: float) -> None:
         if not self.headless:
@@ -184,6 +194,7 @@ class SandboxGame:
 
         if self.game_state.is_game_over():
             logger.info("Player defeated - exiting main loop.")
+            print_message("Player defeated - exiting main loop.", level=1)
             self._running = False
 
     # ------------------------------------------------------------------
