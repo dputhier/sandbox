@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
+import argparse
 import logging
 import time
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Sequence
 
 from .core import EnemyType, GameState, Vector3
 from .utils.io import InputManager
 from .utils.messages import print_message
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_VERBOSITY = 1
+VERBOSITY_LEVELS = {
+    0: logging.WARNING,
+    1: logging.INFO,
+    2: logging.DEBUG,
+}
 
 
 try:  # pragma: no cover - OpenGL is optional during tests
@@ -318,11 +326,42 @@ class SandboxGame:
         glPopMatrix()
 
 
-def main() -> None:
-    logging.basicConfig(level=logging.INFO)
+def apply_cli_verbosity(verbosity: int) -> logging.Logger:
+    """Configure logging for the CLI based on the requested verbosity."""
+
+    level = VERBOSITY_LEVELS.get(verbosity, logging.INFO)
+    logging.basicConfig(level=level)
+
+    cli_logger = logging.getLogger("sandboxgame.cli")
+    message_level = logging.INFO if level <= logging.INFO else level
+    cli_logger.log(
+        message_level,
+        "Sandbox House Defense CLI starting (verbosity=%s)",
+        verbosity,
+    )
+    return cli_logger
+
+
+def main(argv: Optional[Sequence[str]] = None) -> None:
+    parser = argparse.ArgumentParser(description="Sandbox House Defense CLI")
+    parser.add_argument(
+        "--verbosity",
+        choices=tuple(VERBOSITY_LEVELS.keys()),
+        default=DEFAULT_VERBOSITY,
+        type=int,
+        help="Control CLI logging verbosity (0=warnings, 1=info, 2=debug).",
+    )
+    args = parser.parse_args(argv)
+
+    apply_cli_verbosity(args.verbosity)
+
     game = SandboxGame()
     game.run()
 
 
 __all__ = ["SandboxGame", "SandboxConfig", "main"]
+
+
+if __name__ == "__main__":
+    main()
 
