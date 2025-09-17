@@ -11,7 +11,7 @@ from typing import Optional, Sequence
 
 from .core import EnemyType, GameState, Vector3
 from .utils.io import InputManager
-from .utils.messages import print_message
+from .utils.messages import print_message, set_verbosity
 
 logger = logging.getLogger(__name__)
 
@@ -356,6 +356,7 @@ def apply_cli_verbosity(verbosity: int) -> logging.Logger:
     """Configure logging for the CLI based on the requested verbosity."""
 
     level = VERBOSITY_LEVELS.get(verbosity, logging.INFO)
+    set_verbosity(verbosity)
     logging.basicConfig(level=level)
 
     cli_logger = logging.getLogger("sandboxgame.cli")
