@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Optional, Set
 
@@ -10,7 +11,7 @@ try:  # pragma: no cover - import guarded for test environments
 except Exception:  # pragma: no cover - gracefully handle missing glfw
     glfw = None  # type: ignore
 
-from ..core import Vector3
+from ..core import Vector3, clamp
 
 
 @dataclass
@@ -50,6 +51,10 @@ class InputManager:
         self.keyboard = KeyboardState()
         self.mouse = MouseState()
         self.window: Optional["glfw._GLFWwindow"] = None  # type: ignore[attr-defined]
+        self._yaw = 0.0
+        self._pitch = 0.0
+        self._view_direction = Vector3(0.0, 0.0, -1.0)
+        self._mouse_sensitivity = 0.0025
 
     # ------------------------------------------------------------------
     # GLFW integration
@@ -107,11 +112,39 @@ class InputManager:
             x += 1.0
         return Vector3(x, 0.0, z)
 
+    def _apply_mouse_delta(self) -> None:
+        dx = self.mouse.delta_x
+        dy = self.mouse.delta_y
+        if abs(dx) < 1e-6 and abs(dy) < 1e-6:
+            return
+
+        self._yaw += dx * self._mouse_sensitivity
+        self._pitch += dy * self._mouse_sensitivity
+
+        pitch_limit = math.radians(89.0)
+        self._pitch = clamp(self._pitch, -pitch_limit, pitch_limit)
+
+        cos_pitch = math.cos(self._pitch)
+        forward = Vector3(
+            math.sin(self._yaw) * cos_pitch,
+            -math.sin(self._pitch),
+            -math.cos(self._yaw) * cos_pitch,
+        )
+        if forward.length() == 0:
+            forward = Vector3(0.0, 0.0, -1.0)
+        self._view_direction = forward.normalized()
+
+        self.mouse.delta_x = 0.0
+        self.mouse.delta_y = 0.0
+
+    def view_direction(self) -> Vector3:
+        self._apply_mouse_delta()
+        return self._view_direction
+
     def look_vector(self) -> Vector3:
-        # Convert relative mouse movement into a direction vector on the XZ plane.
-        if abs(self.mouse.delta_x) < 1e-5 and abs(self.mouse.delta_y) < 1e-5:
-            return Vector3(0.0, 0.0, -1.0)
-        return Vector3(self.mouse.delta_x, 0.0, -self.mouse.delta_y).normalized()
+        """Backward compatible alias for :meth:`view_direction`."""
+
+        return self.view_direction()
 
     def wants_to_fire(self) -> bool:
         return self.mouse.left_button

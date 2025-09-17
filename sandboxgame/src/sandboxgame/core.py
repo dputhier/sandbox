@@ -52,6 +52,13 @@ class Vector3:
     def with_y(self, new_y: float) -> "Vector3":
         return Vector3(self.x, new_y, self.z)
 
+    def cross(self, other: "Vector3") -> "Vector3":
+        return Vector3(
+            self.y * other.z - self.z * other.y,
+            self.z * other.x - self.x * other.z,
+            self.x * other.y - self.y * other.x,
+        )
+
 
 def clamp(value: float, minimum: float, maximum: float) -> float:
     """Clamp *value* in the inclusive range ``[minimum, maximum]``."""
@@ -164,6 +171,10 @@ class Player:
     reload_duration: float = 1.5
     fire_cooldown: float = 0.0
     reload_cooldown: float = 0.0
+    eye_height: float = 1.4
+    view_direction: Vector3 = field(
+        default_factory=lambda: Vector3(0.0, 0.0, -1.0)
+    )
 
     def move(self, direction: Vector3, dt: float, layout: HouseLayout) -> None:
         if direction.length() == 0:
@@ -194,6 +205,16 @@ class Player:
             return False
         self.reload_cooldown = self.reload_duration
         return True
+
+    def set_view_direction(self, direction: Optional[Vector3]) -> None:
+        if direction is None:
+            return
+        if direction.length() == 0:
+            return
+        self.view_direction = direction.normalized()
+
+    def eye_position(self) -> Vector3:
+        return self.position + Vector3(0.0, self.eye_height, 0.0)
 
 
 @dataclass
@@ -303,17 +324,21 @@ class GameState:
         self.dispatch("enemy_spawned", {"enemy": enemy})
         return enemy
 
-    def fire_projectile(self, direction: Vector3) -> Optional[Bullet]:
-        if direction.length() == 0:
-            direction = Vector3(0.0, 0.0, -1.0)
-        direction = direction.normalized()
+    def fire_projectile(self, direction: Optional[Vector3] = None) -> Optional[Bullet]:
+        if direction is not None:
+            self.player.set_view_direction(direction)
+
+        aim = self.player.view_direction
+        if aim.length() == 0:
+            aim = Vector3(0.0, 0.0, -1.0)
+        direction = aim.normalized()
 
         if not self.player.trigger_shot():
             return None
 
         velocity = direction * 30.0
         bullet = Bullet(
-            position=self.player.position + direction * 0.6,
+            position=self.player.eye_position() + direction * 0.3,
             velocity=velocity,
             damage=15.0,
             ttl=1.5,
@@ -340,10 +365,13 @@ class GameState:
         if movement is not None:
             self.player.move(movement, dt, self.layout)
 
+        if aim_direction is not None:
+            self.player.set_view_direction(aim_direction)
+
         self.player.update(dt)
 
         if fire and self.player.can_fire():
-            self.fire_projectile(aim_direction or Vector3(0.0, 0.0, -1.0))
+            self.fire_projectile()
 
         self._update_bullets(dt)
         self._update_enemies(dt)

@@ -7,6 +7,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+import pytest
+
 from sandboxgame.core import EnemyType, GameState, Vector3
 
 
@@ -20,7 +22,8 @@ def advance(state: GameState, seconds: float, step: float = 1 / 120.0) -> None:
 def test_enemy_elimination_by_bullet() -> None:
     state = GameState()
     enemy = state.spawn_enemy(EnemyType.BRUTE, position=Vector3(6.0, 0.5, 0.0), health=15.0)
-    direction = enemy.position - state.player.position
+    enemy_center = enemy.position + Vector3(0.0, 0.7, 0.0)
+    direction = enemy_center - state.player.eye_position()
 
     bullet = state.fire_projectile(direction)
     assert bullet is not None
@@ -52,6 +55,27 @@ def test_ammo_management_requires_reload() -> None:
     assert state.player.ammo == state.player.magazine_size
 
     assert state.fire_projectile(direction) is not None
+
+
+def test_projectile_uses_persistent_view_direction() -> None:
+    state = GameState()
+    desired_direction = Vector3(0.4, -0.3, -1.0)
+    state.update(0.0, aim_direction=desired_direction)
+
+    # The player orientation should persist even across idle updates.
+    state.update(0.2)
+    view = state.player.view_direction
+    expected = desired_direction.normalized()
+    assert view.x == pytest.approx(expected.x)
+    assert view.y == pytest.approx(expected.y)
+    assert view.z == pytest.approx(expected.z)
+
+    bullet = state.fire_projectile()
+    assert bullet is not None
+    velocity = bullet.velocity.normalized()
+    assert velocity.x == pytest.approx(expected.x)
+    assert velocity.y == pytest.approx(expected.y)
+    assert velocity.z == pytest.approx(expected.z)
 
 
 def test_enemy_ai_moves_toward_player() -> None:
