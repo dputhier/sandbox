@@ -214,7 +214,7 @@ class SandboxGame:
             self.input.poll()
 
         movement = self.input.movement_vector()
-        look = self.input.look_vector()
+        look = self.input.view_direction()
         fire = self.input.wants_to_fire()
         reload = self.input.wants_to_reload()
 
@@ -241,24 +241,31 @@ class SandboxGame:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glLoadIdentity()
 
-        player_pos = self.game_state.player.position
-        camera_pos = Vector3(player_pos.x, player_pos.y + 8.0, player_pos.z + 14.0)
+        player = self.game_state.player
+        view_direction = player.view_direction
+        if view_direction.length() == 0:
+            view_direction = Vector3(0.0, 0.0, -1.0)
+        view_direction = view_direction.normalized()
+
+        eye_position = player.eye_position()
+        camera_pos = eye_position - view_direction * 0.1
+        target = eye_position + view_direction
         gluLookAt(
             camera_pos.x,
             camera_pos.y,
             camera_pos.z,
-            player_pos.x,
-            player_pos.y,
-            player_pos.z,
+            target.x,
+            target.y,
+            target.z,
             0.0,
             1.0,
             0.0,
         )
 
         self._draw_house()
-        self._draw_player()
         self._draw_enemies()
         self._draw_bullets()
+        self._draw_weapon(camera_pos, view_direction)
 
     def _draw_house(self) -> None:
         glColor3f(0.35, 0.35, 0.4)
@@ -281,6 +288,82 @@ class SandboxGame:
         pos = self.game_state.player.position
         glColor3f(0.2, 0.8, 0.3)
         self._draw_prism(pos, scale=Vector3(0.6, 1.6, 0.6))
+
+    def _draw_weapon(self, camera_position: Vector3, view_direction: Vector3) -> None:
+        glColor3f(0.3, 0.32, 0.36)
+
+        forward = view_direction.normalized() if view_direction.length() else Vector3(0.0, 0.0, -1.0)
+        up_world = Vector3(0.0, 1.0, 0.0)
+        right = up_world.cross(forward)
+        if right.length() == 0:
+            right = Vector3(1.0, 0.0, 0.0)
+        right = right.normalized()
+        up = right.cross(forward).normalized()
+
+        half_width = 0.075
+        half_height = 0.06
+        half_length = 0.25
+
+        center = camera_position + forward * (half_length + 0.1) - up * 0.12 + right * 0.12
+
+        def vertex(sign_x: float, sign_y: float, sign_z: float) -> Vector3:
+            return (
+                center
+                + right * (sign_x * half_width)
+                + up * (sign_y * half_height)
+                + forward * (sign_z * half_length)
+            )
+
+        front_top_right = vertex(1.0, 1.0, 1.0)
+        front_top_left = vertex(-1.0, 1.0, 1.0)
+        front_bottom_left = vertex(-1.0, -1.0, 1.0)
+        front_bottom_right = vertex(1.0, -1.0, 1.0)
+        back_top_right = vertex(1.0, 1.0, -1.0)
+        back_top_left = vertex(-1.0, 1.0, -1.0)
+        back_bottom_left = vertex(-1.0, -1.0, -1.0)
+        back_bottom_right = vertex(1.0, -1.0, -1.0)
+
+        glBegin(GL_QUADS)
+        # Front face
+        glVertex3f(front_top_right.x, front_top_right.y, front_top_right.z)
+        glVertex3f(front_top_left.x, front_top_left.y, front_top_left.z)
+        glVertex3f(front_bottom_left.x, front_bottom_left.y, front_bottom_left.z)
+        glVertex3f(front_bottom_right.x, front_bottom_right.y, front_bottom_right.z)
+        # Back face
+        glVertex3f(back_top_left.x, back_top_left.y, back_top_left.z)
+        glVertex3f(back_top_right.x, back_top_right.y, back_top_right.z)
+        glVertex3f(back_bottom_right.x, back_bottom_right.y, back_bottom_right.z)
+        glVertex3f(back_bottom_left.x, back_bottom_left.y, back_bottom_left.z)
+        # Left face
+        glVertex3f(back_top_left.x, back_top_left.y, back_top_left.z)
+        glVertex3f(front_top_left.x, front_top_left.y, front_top_left.z)
+        glVertex3f(front_bottom_left.x, front_bottom_left.y, front_bottom_left.z)
+        glVertex3f(back_bottom_left.x, back_bottom_left.y, back_bottom_left.z)
+        # Right face
+        glVertex3f(front_top_right.x, front_top_right.y, front_top_right.z)
+        glVertex3f(back_top_right.x, back_top_right.y, back_top_right.z)
+        glVertex3f(back_bottom_right.x, back_bottom_right.y, back_bottom_right.z)
+        glVertex3f(front_bottom_right.x, front_bottom_right.y, front_bottom_right.z)
+        # Top face
+        glVertex3f(back_top_right.x, back_top_right.y, back_top_right.z)
+        glVertex3f(back_top_left.x, back_top_left.y, back_top_left.z)
+        glVertex3f(front_top_left.x, front_top_left.y, front_top_left.z)
+        glVertex3f(front_top_right.x, front_top_right.y, front_top_right.z)
+        # Bottom face
+        glVertex3f(front_bottom_right.x, front_bottom_right.y, front_bottom_right.z)
+        glVertex3f(front_bottom_left.x, front_bottom_left.y, front_bottom_left.z)
+        glVertex3f(back_bottom_left.x, back_bottom_left.y, back_bottom_left.z)
+        glVertex3f(back_bottom_right.x, back_bottom_right.y, back_bottom_right.z)
+        glEnd()
+
+        # Simple muzzle flash guide rail
+        muzzle_start = front_top_right + forward * 0.05
+        muzzle_end = muzzle_start + forward * 0.2
+        glColor3f(0.8, 0.8, 0.85)
+        glBegin(GL_LINES)
+        glVertex3f(muzzle_start.x, muzzle_start.y, muzzle_start.z)
+        glVertex3f(muzzle_end.x, muzzle_end.y, muzzle_end.z)
+        glEnd()
 
     def _draw_enemies(self) -> None:
         for enemy in self.game_state.enemies:
