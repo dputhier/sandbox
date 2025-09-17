@@ -26,5 +26,8 @@ tests = [
 Homepage = "https://example.com/sandboxgame"
 Repository = "https://example.com/sandboxgame/repo"
 
+[project.scripts]
+sandboxgame = "sandboxgame.game:main"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
