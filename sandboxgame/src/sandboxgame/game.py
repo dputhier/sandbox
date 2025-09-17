@@ -101,7 +101,7 @@ class SandboxGame:
     def _spawn_initial_enemies(self) -> None:
         self.game_state.spawn_enemy(EnemyType.BRUTE, Vector3(-4.0, 0.5, 6.0))
         self.game_state.spawn_enemy(EnemyType.SPRINTER, Vector3(4.0, 0.5, 6.0))
-        self.game_state.spawn_enemy(EnemyType.LURKER, Vector3(0.0, 3.5, -6.0))
+        self.game_state.spawn_enemy(EnemyType.LURKER, Vector3(0.0, 3.5, 8.0))
 
     def initialize(self) -> None:
         if self.headless:
