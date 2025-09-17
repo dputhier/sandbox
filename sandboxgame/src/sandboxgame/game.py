@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 import time
 from dataclasses import dataclass
 from typing import Optional, Sequence
@@ -118,9 +119,7 @@ class SandboxGame:
         if not glfw.init():
             raise RuntimeError("Failed to initialize GLFW.")
 
-        glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
-        glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
-        glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
+        self._configure_window_hints()
 
         self._window = glfw.create_window(
             self.config.width,
@@ -137,6 +136,33 @@ class SandboxGame:
         glfw.swap_interval(1)
         self.input.attach(self._window)
         self._configure_opengl()
+
+    def _configure_window_hints(self) -> None:
+        """Request an OpenGL context compatible with the fixed-function pipeline."""
+
+        # Reset hints to their defaults so repeated initialization attempts remain
+        # deterministic.
+        glfw.default_window_hints()
+
+        # The renderer relies heavily on immediate-mode and other deprecated
+        # fixed-function APIs. Request a compatibility context so these entry points
+        # remain available. macOS in particular needs to fall back to OpenGL 2.1 to
+        # access the legacy pipeline without triggering GL_INVALID_OPERATION errors.
+        if sys.platform == "darwin":
+            glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 2)
+            glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 1)
+            glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_ANY_PROFILE)
+        else:
+            # Other platforms typically support a compatibility profile at higher
+            # versions, but we avoid requesting a core profile until the renderer is
+            # upgraded.
+            glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
+            glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
+            glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_COMPAT_PROFILE)
+
+        # Explicitly request a non-forward-compatible context to ensure deprecated
+        # entry points remain available.
+        glfw.window_hint(glfw.OPENGL_FORWARD_COMPAT, glfw.FALSE)
 
     def _configure_opengl(self) -> None:
         glClearColor(0.1, 0.1, 0.14, 1.0)
