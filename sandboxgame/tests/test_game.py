@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import pytest
 
 from sandboxgame.core import EnemyType, GameState, Vector3
+from sandboxgame.game import SandboxGame
 
 
 def advance(state: GameState, seconds: float, step: float = 1 / 120.0) -> None:
@@ -17,6 +18,37 @@ def advance(state: GameState, seconds: float, step: float = 1 / 120.0) -> None:
     while elapsed < seconds:
         state.update(step)
         elapsed += step
+
+
+def test_initial_enemy_spawns_respect_layout_bounds() -> None:
+    game = SandboxGame(headless=True)
+
+    layout = game.game_state.layout
+    brute, sprinter, lurker = game.game_state.enemies
+
+    assert brute.enemy_type is EnemyType.BRUTE
+    assert sprinter.enemy_type is EnemyType.SPRINTER
+    assert lurker.enemy_type is EnemyType.LURKER
+
+    for enemy in (brute, sprinter, lurker):
+        assert layout.is_inside(enemy.position)
+
+    expected_ground_z = layout.bounds_z * 0.85
+    expected_ground_x = layout.bounds_x * 0.85
+    expected_upper_z = layout.bounds_z * 0.9
+    expected_upper_y = layout.floor_height + 0.5
+
+    assert brute.position.x == pytest.approx(-expected_ground_x)
+    assert brute.position.y == pytest.approx(0.5)
+    assert brute.position.z == pytest.approx(expected_ground_z)
+
+    assert sprinter.position.x == pytest.approx(expected_ground_x)
+    assert sprinter.position.y == pytest.approx(0.5)
+    assert sprinter.position.z == pytest.approx(expected_ground_z)
+
+    assert lurker.position.x == pytest.approx(0.0)
+    assert lurker.position.y == pytest.approx(expected_upper_y)
+    assert lurker.position.z == pytest.approx(expected_upper_z)
 
 
 def test_enemy_elimination_by_bullet() -> None:
